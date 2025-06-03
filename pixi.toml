@@ -1,0 +1,30 @@
+[workspace]
+channels = ["conda-forge"]
+name = "llmchat"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[system-requirements]
+cuda = "12.0"
+
+[dependencies]
+pytorch-gpu = "*"
+cuda-version = "12.8.*"
+langchain = "*"
+litellm = "*"
+openai = "*"
+python = "3.12.*"
+rich = "*"
+sentence-transformers = "*"
+fire = "*"
+
+[pypi-dependencies]
+langchain_huggingface = "*"
+langchain_litellm = "*"
+langchain-neo4j = "*"
+langchain_openai = "*"
+neo4j = "*"
+hf_xet = "*"
+gradio = "*"

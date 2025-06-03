@@ -1,0 +1,12 @@
+# pixi environments
+.pixi
+*.egg-info
+
+# Python cache
+*__pycache__/
+
+# .env files
+.env
+
+# data files
+data/
