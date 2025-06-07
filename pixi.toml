@@ -19,6 +19,7 @@ python = "3.12.*"
 rich = "*"
 sentence-transformers = "*"
 fire = "*"
+pyvis = "*"
 
 [pypi-dependencies]
 langchain_huggingface = "*"

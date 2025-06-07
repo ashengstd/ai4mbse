@@ -103,7 +103,7 @@ class Neo4jGraphController:
         return list(matches)
 
     def query_subgraph(
-        self, entities: list[str], depth: int = 2, limit: int = 20
+        self, entities: list[str], depth: int = 4, limit: int = 20
     ) -> list[dict[str, list[dict]]]:
         # 查询子图只返回节点和关系的名称和描述
         if not entities:

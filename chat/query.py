@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from langchain.prompts import PromptTemplate
 from langchain_litellm import ChatLiteLLM
@@ -44,7 +45,7 @@ def query_by_subgraphs(
     question: str,
     depth=2,
     limit=20,
-) -> None:
+) -> Optional[str]:
     # 1. 提取实体
     entities = extract_entities(llm=llm, question=question, logger=logger)
     if not entities:
@@ -77,3 +78,4 @@ def query_by_subgraphs(
     answer = llm.invoke(question).content
 
     logger.info(f"💡 回答: {answer}")
+    return answer
