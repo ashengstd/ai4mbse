@@ -17,15 +17,8 @@ class SysMLParser:
         self.file_path = file_path
         self.root = None
         self.namespaces = {}
-        self.elements_by_id = {}
-        self.stereotype_applications = {}
-        self.found_requirements_ids = set()
 
         self.load_xml()
-
-        if self.root is not None:
-            self.build_id_map()
-            self._build_stereotype_map()
 
     def load_xml(self):
         try:
@@ -43,7 +36,6 @@ class SysMLParser:
 
             logger.info(
                 f"✅ 成功加载 XML 文件: [bold green]{self.file_path}[/bold green]，"
-                f"检测到命名空间: [cyan]{list(self.namespaces.keys())}[/cyan]"
             )
 
         except (FileNotFoundError, ET.ParseError) as e:
@@ -51,53 +43,16 @@ class SysMLParser:
             self.root = None
 
     def _strip_ns(self, tag):
-        # 用于 strip namespace {…} 前缀
         return tag.split("}")[-1] if "}" in tag else tag
-
-    def build_id_map(self):
-        self.elements_by_id = {
-            elem.get(f"{{{self.namespaces.get('xmi', '')}}}id"): elem
-            for elem in self.root.findall(".//*[@xmi:id]", self.namespaces)
-        }
-        logger.info("🗺️  [bold]XMI ID 映射构建完成[/bold]")
-
-    def _build_stereotype_map(self):
-        """
-        [关键优化] 构造型映射逻辑优化，使其更通用，不再依赖于标签中的':'。
-        它现在查找任何带有 'base_*' 属性的元素，这对于识别构造型应用更可靠。
-        """
-        logger.info("🛠️  [bold]开始构建构造型映射[/bold]...")
-        for elem in self.root.findall(".//*"):
-            base_element_id = None
-            # 查找任何以 'base_' 开头的属性
-            for attr_name, attr_value in elem.attrib.items():
-                if attr_name.startswith("base_"):
-                    base_element_id = attr_value
-                    # 提取构造型名称（标签名本身）并转为小写，以便不区分大小写比较
-                    stereotype_type = elem.tag.split("}")[-1].lower()
-                    self.stereotype_applications[base_element_id] = stereotype_type
-                    break  # 找到一个 'base_' 属性就足够了
-        logger.info(
-            f"✅ 构造型映射完成，共发现 [green]{len(self.stereotype_applications)}[/green] 个应用"
-        )
-
-    def get_element_by_id(self, xmi_id):
-        return self.elements_by_id.get(xmi_id)
-
-    def get_element_details(self, xmi_id):
-        element = self.get_element_by_id(xmi_id)
-        if element is not None:
-            name = element.get("name", "N/A")
-            xmi_type = element.get(f"{{{self.namespaces.get('xmi', '')}}}type", "N/A")
-            return {"element": element, "name": name, "type": xmi_type}
-        return None
 
     def extract_requirement_diagrams(self):
         if self.root is None:
-            logger.warning("XML根元素未加载，无法提取需求图。")
+            logger.warning(
+                "⚠️  [bold yellow]未加载 XML 根元素，无法提取需求图。[/bold yellow]"
+            )
             return
 
-        logger.info("📜 [bold yellow]开始提取需求图及其结构关系[/bold yellow]")
+        logger.info("\n📜 [bold yellow]开始提取需求图及其结构关系[/bold yellow]")
 
         # Iterate through all elements to find Requirement Diagrams
         for elem in self.root.iter():
@@ -186,7 +141,7 @@ class SysMLParser:
             )
             return
 
-        logger.info("🧩 [bold magenta]开始提取内部块图及其连接关系[/bold magenta]")
+        logger.info("\n🧩 [bold magenta]开始提取内部块图及其连接关系[/bold magenta]")
 
         for elem in self.root.iter():
             tag = self._strip_ns(elem.tag)
@@ -246,10 +201,12 @@ class SysMLParser:
 
     def extract_block_diagrams(self):
         if self.root is None:
-            logger.warning("XML根元素未加载，无法提取块图。")
+            logger.warning(
+                "⚠️  [bold yellow]未加载 XML 根元素，无法提取块图。[/bold yellow]"
+            )
             return
 
-        logger.info("📘 [bold blue]提取块图及其结构关系[/bold blue]")
+        logger.info("\n📘 [bold blue]提取块图及其结构关系[/bold blue]")
 
         # Iterate through all elements to find Block Diagrams
         for elem in self.root.iter():
@@ -259,7 +216,7 @@ class SysMLParser:
             if tag == "contents" and elem.get("stereotype") == "SysmlBlockDiagram":
                 bdd_elem = elem
                 diagram_name = bdd_elem.get("name", "未命名块图")
-                logger.info(f"\nAnalyzing Diagram: [bold]{diagram_name}[/bold]")
+                logger.info(f"\n📊 分析块图: [bold]{diagram_name}[/bold]")
 
                 # --- 1. Extract all nodes (Blocks, ValueTypes, etc.) in this diagram ---
                 node_id_to_name = {}
@@ -322,7 +279,7 @@ class SysMLParser:
                         )
 
                 if not found_connections:
-                    logger.info("  -> No connections found in this diagram.")
+                    logger.info("  ⚠️  未发现任何连接关系。")
 
 
 if __name__ == "__main__":
