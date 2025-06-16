@@ -76,6 +76,6 @@ def query_by_subgraphs(
     )
     question = prompt.format(question=question, subgraph=subgraphs)
     answer = llm.invoke(question).content
-
+    logger.info(f"📝 格式化后的问题: {question}")
     logger.info(f"💡 回答: {answer}")
     return answer
