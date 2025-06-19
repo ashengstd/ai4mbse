@@ -9,12 +9,9 @@ version = "0.1.0"
 [dependencies]
 langchain = "*"
 litellm = "*"
-openai = "*"
 python = "3.12.*"
 rich = "*"
-sentence-transformers = "*"
 fire = "*"
-pyvis = "*"
 
 [pypi-dependencies]
 langchain_huggingface = "*"

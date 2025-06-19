@@ -1,0 +1,18 @@
+[project]
+name = "ai4mbse"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain",
+    "litellm",
+    "rich",
+    "fire",
+    "langchain_huggingface",
+    "langchain_litellm",
+    "langchain-neo4j",
+    "langchain_openai",
+    "neo4j",
+    "hf_xet",
+]
