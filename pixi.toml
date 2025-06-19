@@ -6,12 +6,7 @@ version = "0.1.0"
 
 [tasks]
 
-[system-requirements]
-cuda = "12.0"
-
 [dependencies]
-pytorch-gpu = "*"
-cuda-version = "12.8.*"
 langchain = "*"
 litellm = "*"
 openai = "*"
