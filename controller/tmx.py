@@ -1,3 +1,4 @@
+import json
 import logging
 import xml.etree.ElementTree as ET
 
@@ -18,6 +19,7 @@ class SysMLParser:
         self.root = None
         self.namespaces = {}
         self._model_elements_by_id = {}  # 新增: 全局模型元素ID到名称的映射
+        self.triples = []  # 用于存储提取的三元组
 
         self.load_xml()
 
@@ -180,6 +182,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 关系 ([blue]{conn_type}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  -> No connections found in this diagram.")
@@ -288,6 +292,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 连接 ([blue]{conn_type}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  ⚠️  未发现任何连接关系。")
@@ -375,6 +381,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 关系 ([blue]{conn_type}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  ⚠️  未发现任何连接关系。")
@@ -470,6 +478,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 关系 ([blue]{conn_type}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  ⚠️  未发现任何连接关系。")
@@ -664,6 +674,8 @@ class SysMLParser:
                         logger.info(
                             f"    🔗 关系 ([blue]{conn_type}{guard_condition}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  ⚠️  未发现任何连接关系。")
@@ -693,6 +705,7 @@ class SysMLParser:
                 logger.info(f"\n🧩 分析类图: [bold]{diagram_name}[/bold]")
 
                 node_id_to_name = {}
+                # --- MODIFIED: Broaden node identification criteria ---
                 for node in class_diagram_elem.findall(
                     ".//nodes", namespaces=self.namespaces
                 ):
@@ -700,20 +713,69 @@ class SysMLParser:
                         f"{{{self.namespaces.get('xmi', '')}}}type"
                     )
                     node_id = node.get(f"{{{self.namespaces.get('xmi', '')}}}id")
-                    node_name = node.get("name", "未命名").strip()
+                    node_name = node.get(
+                        "name", ""
+                    ).strip()  # Use empty string for initial check
 
-                    # 识别类节点 (通常是 trufun:TClassNode 或 trufun:TModelElementNode with stereotype <<class>>)
+                    # Identify nodes that represent entities in the diagram
+                    # This now includes TClassNode, TModelElementNode (for blocks/requirements), etc.
                     if node_id and (
                         node_xmi_type == "trufun:TClassNode"
-                        or (
-                            node_xmi_type == "trufun:TModelElementNode"
-                            and node.get("stereotype") == "<<class>>"
-                        )
+                        or node_xmi_type
+                        == "trufun:TModelElementNode"  # Capture all TModelElementNodes
+                        or node_xmi_type
+                        == "trufun:TCommentNode"  # Capture Comment Nodes like HyperLink
                     ):
-                        node_id_to_name[node_id] = node_name
-                        logger.info(f"  🔷 类: [green]{node_name}[/green]")
+                        # For TModelElementNode, the 'name' attribute directly holds the entity name.
+                        # For TCommentNode, it also has a 'name' attribute.
+                        if node_name:  # Ensure name is not empty
+                            node_id_to_name[node_id] = node_name
+                            # Log only if it's a primary entity type
+                            if node_xmi_type in [
+                                "trufun:TClassNode",
+                                "trufun:TModelElementNode",
+                            ]:
+                                logger.info(
+                                    f"  🔷 实体: [green]{node_name}[/green] (类型: {self._strip_ns(node_xmi_type)}, Stereotype: {node.get('stereotype', '无')})"
+                                )
+                            elif node_xmi_type == "trufun:TCommentNode":
+                                logger.info(
+                                    f"  📝 注释/链接: [green]{node_name}[/green] (类型: {self._strip_ns(node_xmi_type)})"
+                                )
+                        else:
+                            continue
 
-                        # 提取属性 (Attributes)
+                        part_properties_compartment = node.find(
+                            "./nodes[@type='part_properties']",
+                            namespaces=self.namespaces,
+                        )
+                        if part_properties_compartment is not None:
+                            for part_prop in part_properties_compartment.findall(
+                                "./nodes[@type='ListCompartmentChild']",
+                                namespaces=self.namespaces,
+                            ):
+                                part_name = part_prop.get("name", "未命名部件").strip()
+                                logger.info(f"    - 部件属性: [cyan]{part_name}[/cyan]")
+
+                        constraint_properties_compartment = node.find(
+                            "./nodes[@type='constraint_properties']",
+                            namespaces=self.namespaces,
+                        )
+                        if constraint_properties_compartment is not None:
+                            for (
+                                constraint_prop
+                            ) in constraint_properties_compartment.findall(
+                                "./nodes[@type='ListCompartmentChild']",
+                                namespaces=self.namespaces,
+                            ):
+                                constraint_name = constraint_prop.get(
+                                    "name", "未命名约束"
+                                ).strip()
+                                logger.info(
+                                    f"    - 约束属性: [cyan]{constraint_name}[/cyan]"
+                                )
+
+                        # Original attribute/operation extraction (might be less relevant for your SysML-like XML)
                         attrs_compartment = node.find(
                             "./nodes[@type='attributes']", namespaces=self.namespaces
                         )
@@ -725,7 +787,6 @@ class SysMLParser:
                                 prop_name = prop.get("name", "未命名属性").strip()
                                 logger.info(f"    - 属性: [cyan]{prop_name}[/cyan]")
 
-                        # 提取操作 (Operations)
                         ops_compartment = node.find(
                             "./nodes[@type='operations']", namespaces=self.namespaces
                         )
@@ -781,6 +842,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 关系 ([blue]{conn_type}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type, target_name))
 
                 if not found_connections:
                     logger.info("  ⚠️  未发现任何连接关系。")
@@ -989,9 +1052,7 @@ class SysMLParser:
                             target_id, f"未知节点 (ID: {target_id})"
                         )
 
-                        conn_xmi_type = conn.get(
-                            f"{{{self.namespaces.get('xmi', '')}}}type"
-                        )
+                        _ = conn.get(f"{{{self.namespaces.get('xmi', '')}}}type")
                         transition_type = (
                             "Transition"  # Default for TTransitionConnection
                         )
@@ -1016,6 +1077,8 @@ class SysMLParser:
                         logger.info(
                             f"    🔗 {transition_type}: [bold green]{source_name}[/bold green] --({transition_label})--> [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, transition_type, target_name))
 
                 if not found_transitions:
                     logger.info("    ⚠️  未发现任何转换关系。")
@@ -1317,6 +1380,10 @@ class SysMLParser:
                         logger.info(
                             f"    -> 消息: [bold green]{source_name}[/bold green] --[blue]{full_message_label}[/blue]--> [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append(
+                            (source_name, full_message_label, target_name)
+                        )
 
                 if not found_messages:
                     logger.info("    ⚠️  未发现任何消息。")
@@ -1325,7 +1392,7 @@ class SysMLParser:
     # --- 新增的包图提取方法 ---
     # ----------------------------------------------------------------------
     def extract_package_diagrams(self):
-        if self.root == None:
+        if self.root is None:
             logger.warning(
                 "⚠️  [bold yellow]未加载 XML 根元素，无法提取包图。[/bold yellow]"
             )
@@ -1421,6 +1488,14 @@ class SysMLParser:
 
                         logger.info(
                             f"  🔗 关系 ([blue]{relationship_label}{stereotype_label}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
+                        )
+                        # Store the triple for later use
+                        self.triples.append(
+                            (
+                                source_name,
+                                f"{relationship_label}{stereotype_label}",
+                                target_name,
+                            )
                         )
 
                 if not found_connections:
@@ -1521,7 +1596,7 @@ class SysMLParser:
                                 "./nodes", namespaces=self.namespaces
                             ):
                                 inner_node_type = inner_node.get("type")
-                                inner_node_xmi_type = inner_node.get(
+                                _ = inner_node.get(
                                     f"{{{self.namespaces.get('xmi', '')}}}type"
                                 )
                                 inner_node_id = inner_node.get(
@@ -1644,6 +1719,8 @@ class SysMLParser:
                         logger.info(
                             f"  🔗 绑定连接器 ([blue]{conn_type_label}[/blue]): [bold green]{source_name}[/bold green] ↔️ [bold blue]{target_name}[/bold blue]"
                         )
+                        # Store the triple for later use
+                        self.triples.append((source_name, conn_type_label, target_name))
                     # 你可能也想捕获其他类型的连接，如果它们出现在参数图中
                     # else:
                     #     conn_xmi_type = conn.get(f"{{{self.namespaces.get('xmi', '')}}}type")
@@ -1740,6 +1817,56 @@ class SysMLParser:
         if not found_tables:
             logger.info("  ⚠️  未发现任何表格视图。")
 
+    # 参考这个
+    # for triple in triples["triples"]:
+    #     head = triple["head"]
+    #     relation = triple["relation"]
+    #     tail = triple["tail"]
+
+    #     # MERGE head node
+    #     tx.run(
+    #         f"""
+    #         MERGE (h:{head["label"]} {{id: $head_id}})
+    #         SET h += $head_properties
+    #         """,
+    #         {
+    #             "head_id": head.get("id"),
+    #             "head_properties": head.get("properties", {}),
+    #         },
+    #     )
+
+    #     # MERGE tail node
+    #     tx.run(
+    #         f"""
+    #         MERGE (t:{tail["label"]} {{id: $tail_id}})
+    #         SET t += $tail_properties
+    #         """,
+    #         {
+    #             "tail_id": tail.get("id"),
+    #             "tail_properties": tail.get("properties", {}),
+    #         },
+    #     )
+
+    #     # MERGE relation
+    #     tx.run(
+    #         f"""
+    #         MATCH (h:{head["label"]} {{id: $head_id}}), (t:{tail["label"]} {{id: $tail_id}})
+    #         MERGE (h)-[r:{relation["type"]}]->(t)
+    #         SET r += $relation_properties
+    #         """,
+    #         {
+    #             "head_id": head.get("id"),
+    #             "tail_id": tail.get("id"),
+    #             "relation_properties": relation.get("properties", {}),
+    #         },
+    #     )
+    # 参考上面的导入格式，保存到json
+    def triples_to_graph_json(self):
+        graph = {"triples": []}
+        for head, relation, tail in self.triples:
+            graph["triples"].append({"head": head, "relation": relation, "tail": tail})
+        return graph
+
 
 if __name__ == "__main__":
     # 请确保这里的路径是正确的
@@ -1757,5 +1884,9 @@ if __name__ == "__main__":
         parser.extract_state_machine_diagrams()
         parser.extract_package_diagrams()
         parser.extract_parametric_diagrams()
-        # --- 调用新增的表格提取方法 ---
         parser.extract_tables()
+
+    graph = parser.triples_to_graph_json()
+    logger.info("📊 [bold green]已提取图数据结构（JSON格式）[/bold green]\n")
+    with open("trufun.json", "w") as f:
+        json.dump(graph, f, ensure_ascii=False, indent=4)

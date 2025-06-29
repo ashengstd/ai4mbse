@@ -12,6 +12,7 @@ litellm = "*"
 python = "3.12.*"
 rich = "*"
 fire = "*"
+huggingface_hub = "*"
 
 [pypi-dependencies]
 langchain_huggingface = "*"
@@ -20,4 +21,3 @@ langchain-neo4j = "*"
 langchain_openai = "*"
 neo4j = "*"
 hf_xet = "*"
-gradio = "*"
