@@ -17,4 +17,7 @@ dependencies = [
     "neo4j",
     "hf_xet",
     "huggingface-hub",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
 ]
