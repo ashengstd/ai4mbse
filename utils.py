@@ -82,7 +82,7 @@ def extract_triples(input_txt: Path, output_json: Path):
 
 
 def tasks(
-    task: Literal["import_triples"],
+    task: Literal["import_triples", "test_query", "extratct_triples"],
     triples_path=Optional[str],
     input_txt=Optional[str],
     output_json=Optional[str],

@@ -78,7 +78,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.2-py312h178313f_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/multidict-6.6.0-py312h178313f_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/multidict-6.6.2-py312h178313f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.5-h2d0b736_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/numpy-1.26.4-py312heda63a1_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/openai-1.93.0-pyhd8ed1ab_0.conda
@@ -1144,9 +1144,9 @@ packages:
   - pkg:pypi/mdurl?source=hash-mapping
   size: 14465
   timestamp: 1733255681319
-- conda: https://conda.anaconda.org/conda-forge/linux-64/multidict-6.6.0-py312h178313f_0.conda
-  sha256: a51aad4f15e9719f930883548b86f9b054c8bbc1fd60d641a7f364bb102fbf09
-  md5: 1f707aeb79342d79881d44552ddab8e2
+- conda: https://conda.anaconda.org/conda-forge/linux-64/multidict-6.6.2-py312h178313f_0.conda
+  sha256: 04507ab5f39efd998f3e15f392392c8c49744966e5fb87465ba6254824c3fc78
+  md5: 576bc7163e9adabb1e7362b7f1aefb4e
   depends:
   - __glibc >=2.17,<3.0.a0
   - libgcc >=13
@@ -1155,8 +1155,8 @@ packages:
   license: Apache-2.0
   purls:
   - pkg:pypi/multidict?source=hash-mapping
-  size: 96554
-  timestamp: 1751089445335
+  size: 97216
+  timestamp: 1751273662811
 - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.5-h2d0b736_3.conda
   sha256: 3fde293232fa3fca98635e1167de6b7c7fda83caf24b9d6c91ec9eefb4f4d586
   md5: 47e340acb35de30501a76c7c799c41d7
@@ -1676,7 +1676,7 @@ packages:
   license: PSF-2.0
   license_family: PSF
   purls:
-  - pkg:pypi/typing-extensions?source=compressed-mapping
+  - pkg:pypi/typing-extensions?source=hash-mapping
   size: 50978
   timestamp: 1748959427551
 - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2025b-h78e105d_0.conda

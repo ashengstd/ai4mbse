@@ -13,6 +13,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "fire" },
     { name = "hf-xet" },
+    { name = "huggingface-hub" },
     { name = "langchain" },
     { name = "langchain-huggingface" },
     { name = "langchain-litellm" },
@@ -27,6 +28,7 @@ dependencies = [
 requires-dist = [
     { name = "fire" },
     { name = "hf-xet" },
+    { name = "huggingface-hub" },
     { name = "langchain" },
     { name = "langchain-huggingface" },
     { name = "langchain-litellm" },

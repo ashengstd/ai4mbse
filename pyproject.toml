@@ -9,10 +9,12 @@ dependencies = [
     "litellm",
     "rich",
     "fire",
+    "langchain",
     "langchain_huggingface",
     "langchain_litellm",
     "langchain-neo4j",
     "langchain_openai",
     "neo4j",
     "hf_xet",
+    "huggingface-hub",
 ]
