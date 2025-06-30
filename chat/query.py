@@ -3,15 +3,22 @@ from typing import Optional
 
 from langchain.prompts import PromptTemplate
 from langchain_litellm import ChatLiteLLM
+from rich.logging import RichHandler
 
 from chat.template import entity_prompt_template
 from controller.graph import Neo4jGraphController
 
+logger = logging.getLogger("query")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)],
+)
+
 
 # --- 实体提取函数 ---
-def extract_entities(
-    llm: ChatLiteLLM, question: str, logger: logging.Logger
-) -> list[str]:
+def extract_entities(llm: ChatLiteLLM, question: str) -> list[str]:
     """
     使用 LLM 从问题中提取实体列表。
     Args:
@@ -41,13 +48,12 @@ def extract_entities(
 def query_by_subgraphs(
     llm: ChatLiteLLM,
     graph_controller: Neo4jGraphController,
-    logger: logging.Logger,
     question: str,
     depth=2,
     limit=20,
 ) -> Optional[str]:
     # 1. 提取实体
-    entities = extract_entities(llm=llm, question=question, logger=logger)
+    entities = extract_entities(llm=llm, question=question)
     if not entities:
         logger.warning("⚠️ 没有提取到实体，无法进行子图查询。")
         return None

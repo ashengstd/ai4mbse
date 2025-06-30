@@ -1,8 +1,28 @@
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
 from neo4j import GraphDatabase, Session
+
+
+def safe_name(name: str) -> str:
+    """
+    将标签或关系类型中的非法字符替换为下划线
+    - 只允许字母、数字、下划线
+    - 多个连续下划线合并为一个
+    - 不允许以数字开头
+    """
+    # 替换非法字符为 _
+    safe = re.sub(r"[^\w]", "_", name)
+    # 合并连续下划线
+    safe = re.sub(r"_+", "_", safe)
+    # 去除首尾下划线（可选）
+    safe = safe.strip("_")
+    # 避免以数字开头
+    if re.match(r"^\d", safe):
+        safe = f"_{safe}"
+    return safe
 
 
 class Neo4jGraphController:
@@ -42,10 +62,14 @@ class Neo4jGraphController:
                     relation = triple["relation"]
                     tail = triple["tail"]
 
+                    head_label = safe_name(head["label"])
+                    tail_label = safe_name(tail["label"])
+                    rel_type = safe_name(relation["type"])
+
                     # MERGE head node
                     tx.run(
                         f"""
-                        MERGE (h:{head["label"]} {{id: $head_id}})
+                        MERGE (h:{head_label} {{id: $head_id}})
                         SET h += $head_properties
                         """,
                         {
@@ -57,7 +81,7 @@ class Neo4jGraphController:
                     # MERGE tail node
                     tx.run(
                         f"""
-                        MERGE (t:{tail["label"]} {{id: $tail_id}})
+                        MERGE (t:{tail_label} {{id: $tail_id}})
                         SET t += $tail_properties
                         """,
                         {
@@ -69,8 +93,8 @@ class Neo4jGraphController:
                     # MERGE relation
                     tx.run(
                         f"""
-                        MATCH (h:{head["label"]} {{id: $head_id}}), (t:{tail["label"]} {{id: $tail_id}})
-                        MERGE (h)-[r:{relation["type"]}]->(t)
+                        MATCH (h:{head_label} {{id: $head_id}}), (t:{tail_label} {{id: $tail_id}})
+                        MERGE (h)-[r:{rel_type}]->(t)
                         SET r += $relation_properties
                         """,
                         {

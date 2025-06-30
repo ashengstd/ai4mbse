@@ -14,6 +14,11 @@ logging.basicConfig(
 
 
 class SysMLParser:
+    """
+    SysMLParser 用于解析 SysML XML 文件，提取需求图、内部块图、块图、用例图和活动图等结构信息。
+    支持提取模型元素的名称、ID、连接关系等，并将其存储为三元组形式。
+    """
+
     def __init__(self, file_path):
         self.file_path = file_path
         self.root = None
@@ -1818,54 +1823,57 @@ class SysMLParser:
             logger.info("  ⚠️  未发现任何表格视图。")
 
     # 参考这个
-    # for triple in triples["triples"]:
-    #     head = triple["head"]
-    #     relation = triple["relation"]
-    #     tail = triple["tail"]
-
-    #     # MERGE head node
-    #     tx.run(
-    #         f"""
-    #         MERGE (h:{head["label"]} {{id: $head_id}})
-    #         SET h += $head_properties
-    #         """,
-    #         {
-    #             "head_id": head.get("id"),
-    #             "head_properties": head.get("properties", {}),
+    #     {
+    #         "head": {
+    #             "label": "ModelingMethod",
+    #             "id": "mm-001",
+    #             "properties": {
+    #                 "name": "SysML",
+    #                 "description": "系统建模语言，用于对更广泛的系统进行建模",
+    #             },
     #         },
-    #     )
-
-    #     # MERGE tail node
-    #     tx.run(
-    #         f"""
-    #         MERGE (t:{tail["label"]} {{id: $tail_id}})
-    #         SET t += $tail_properties
-    #         """,
-    #         {
-    #             "tail_id": tail.get("id"),
-    #             "tail_properties": tail.get("properties", {}),
+    #         "relation": {"type": "EXTENDS", "properties": {}},
+    #         "tail": {
+    #             "label": "ModelingMethod",
+    #             "id": "mm-002",
+    #             "properties": {"name": "UML", "description": "统一建模语言"},
     #         },
-    #     )
-
-    #     # MERGE relation
-    #     tx.run(
-    #         f"""
-    #         MATCH (h:{head["label"]} {{id: $head_id}}), (t:{tail["label"]} {{id: $tail_id}})
-    #         MERGE (h)-[r:{relation["type"]}]->(t)
-    #         SET r += $relation_properties
-    #         """,
-    #         {
-    #             "head_id": head.get("id"),
-    #             "tail_id": tail.get("id"),
-    #             "relation_properties": relation.get("properties", {}),
-    #         },
-    #     )
+    #     },
     # 参考上面的导入格式，保存到json
-    def triples_to_graph_json(self):
+    # name字段才是名字
+    def triples_to_graph_json(self, label: str = "tmx"):
         graph = {"triples": []}
-        for head, relation, tail in self.triples:
-            graph["triples"].append({"head": head, "relation": relation, "tail": tail})
+        for triple in self.triples:
+            head, relation, tail = triple
+            # id 使用name的hash,这样可以统一相同名称的节点
+            graph["triples"].append(
+                {
+                    "head": {
+                        "label": label,
+                        "id": str(hash(head)),
+                        "properties": {"name": head},
+                    },
+                    "relation": {"type": relation, "properties": {}},
+                    "tail": {
+                        "label": label,
+                        "id": str(hash(tail)),
+                        "properties": {"name": tail},
+                    },
+                }
+            )
         return graph
+
+    def parse_all(self):
+        self.extract_requirement_diagrams()
+        self.extract_internal_block_diagrams()
+        self.extract_block_diagrams()
+        self.extract_usecase_diagrams()
+        self.extract_activity_diagrams()
+        self.extract_class_diagrams()
+        self.extract_state_machine_diagrams()
+        self.extract_package_diagrams()
+        self.extract_parametric_diagrams()
+        self.extract_tables()
 
 
 if __name__ == "__main__":
@@ -1875,16 +1883,7 @@ if __name__ == "__main__":
     parser = SysMLParser(file_path)
 
     if parser.root is not None:
-        parser.extract_requirement_diagrams()
-        parser.extract_internal_block_diagrams()
-        parser.extract_block_diagrams()
-        parser.extract_usecase_diagrams()
-        parser.extract_activity_diagrams()
-        parser.extract_class_diagrams()
-        parser.extract_state_machine_diagrams()
-        parser.extract_package_diagrams()
-        parser.extract_parametric_diagrams()
-        parser.extract_tables()
+        parser.parse_all()
 
     graph = parser.triples_to_graph_json()
     logger.info("📊 [bold green]已提取图数据结构（JSON格式）[/bold green]\n")
