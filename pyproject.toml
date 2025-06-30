@@ -5,10 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi[standard]",
+    "fire",
     "langchain",
     "litellm",
     "rich",
-    "fire",
     "langchain",
     "langchain_huggingface",
     "langchain_litellm",
@@ -17,7 +18,5 @@ dependencies = [
     "neo4j",
     "hf_xet",
     "huggingface-hub",
-    "fastapi",
-    "uvicorn",
     "python-multipart",
 ]
