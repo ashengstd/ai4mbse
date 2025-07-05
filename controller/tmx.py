@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from rich.logging import RichHandler
 
@@ -1878,14 +1879,14 @@ class SysMLParser:
 
 if __name__ == "__main__":
     # 请确保这里的路径是正确的
-    file_path = "trufun.tmx"  # 假设这个文件包含了参数图信息
-
-    parser = SysMLParser(file_path)
+    file_path = "data/trufun.tmx"  # 假设这个文件包含了参数图信息
+    content = Path(file_path).read_text(encoding="utf-8")
+    parser = SysMLParser(content)
 
     if parser.root is not None:
         parser.parse_all()
 
     graph = parser.triples_to_graph_json()
     logger.info("📊 [bold green]已提取图数据结构（JSON格式）[/bold green]\n")
-    with open("trufun.json", "w") as f:
+    with open("data/trufun.json", "w") as f:
         json.dump(graph, f, ensure_ascii=False, indent=4)
