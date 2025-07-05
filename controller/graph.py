@@ -1,7 +1,17 @@
+import logging
 import re
 from typing import Optional
 
-from neo4j import GraphDatabase, Session
+from neo4j import AsyncGraphDatabase, AsyncSession
+from rich.logging import RichHandler
+
+logger = logging.getLogger("graph_controller")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, show_time=False, markup=True)],
+)
 
 
 def safe_name(name: str) -> str:
@@ -25,31 +35,44 @@ def safe_name(name: str) -> str:
 
 class Neo4jGraphController:
     def __init__(self, url: str, username: str, password: str):
-        self.driver = GraphDatabase.driver(url, auth=(username, password))
+        self.driver = AsyncGraphDatabase.driver(url, auth=(username, password))
 
-    def close(self):
-        self.driver.close()
+    async def close(self):
+        await self.driver.close()
 
-    def query(
+    async def ensure_indexes(self):
+        """
+        确保数据库中的索引存在，如果不存在则创建。
+        """
+        logger.info("🔍 正在检查并确保数据库索引...")
+        async with self.driver.session() as session:
+            # 为节点的 name 属性创建索引，以加速实体匹配
+            index_query = "CREATE INDEX node_name_index IF NOT EXISTS FOR (n:LabelName) ON (n.name)"
+            await session.run(index_query)
+            logger.info("✅ 索引 'node_name_index' 已确保存在。")
+
+    async def query(
         self,
         cypher: str,
         parameters: Optional[dict] = None,
-        session: Optional[Session] = None,
+        session: Optional[AsyncSession] = None,
     ) -> list:
         """
         执行 Cypher 查询，支持外部 Session 复用。
         """
         if session:
-            return list(session.run(cypher, parameters or {}))
-        with self.driver.session() as session:
-            return list(session.run(cypher, parameters or {}))
+            result = await session.run(cypher, parameters or {})
+            return await result.data()
+        async with self.driver.session() as session:
+            result = await session.run(cypher, parameters or {})
+            return await result.data()
 
-    def import_triples(self, triples: dict) -> None:
+    async def import_triples(self, triples: dict) -> None:
         if not triples or "triples" not in triples:
             raise ValueError("三元组数据格式不正确，请检查 LLM 输出。")
 
-        with self.driver.session() as session:
-            with session.begin_transaction() as tx:
+        async with self.driver.session() as session:
+            async with session.begin_transaction() as tx:
                 for triple in triples["triples"]:
                     head = triple["head"]
                     relation = triple["relation"]
@@ -60,7 +83,7 @@ class Neo4jGraphController:
                     rel_type = safe_name(relation["type"])
 
                     # MERGE head node
-                    tx.run(
+                    await tx.run(
                         f"""
                         MERGE (h:{head_label} {{id: $head_id}})
                         SET h += $head_properties
@@ -72,7 +95,7 @@ class Neo4jGraphController:
                     )
 
                     # MERGE tail node
-                    tx.run(
+                    await tx.run(
                         f"""
                         MERGE (t:{tail_label} {{id: $tail_id}})
                         SET t += $tail_properties
@@ -84,7 +107,7 @@ class Neo4jGraphController:
                     )
 
                     # MERGE relation
-                    tx.run(
+                    await tx.run(
                         f"""
                         MATCH (h:{head_label} {{id: $head_id}}), (t:{tail_label} {{id: $tail_id}})
                         MERGE (h)-[r:{rel_type}]->(t)
@@ -97,29 +120,31 @@ class Neo4jGraphController:
                         },
                     )
 
-    def search_likely_entities(
+    async def search_likely_entities(
         self, entities: list[str], threshold: float = 0.5, top_k: int = 5
     ) -> list[str]:
-        matches: set[str] = set()
-        with self.driver.session() as session:
-            for entity in entities:
-                entity = entity.strip()
-                if not entity:
-                    continue
-                cypher = """
-                MATCH (n)
-                WHERE n.name IS NOT NULL AND apoc.text.sorensenDiceSimilarity(n.name, $entity) >= $threshold
-                RETURN DISTINCT n.name AS name
-                ORDER BY apoc.text.sorensenDiceSimilarity(n.name, $entity) DESC
-                LIMIT $top_k
-                """
-                res = session.run(
-                    cypher, {"entity": entity, "threshold": threshold, "top_k": top_k}
-                )
-                matches.update(row["name"] for row in res)
-        return list(matches)
+        if not entities:
+            return []
 
-    def query_subgraph(
+        cypher = """
+        UNWIND $entities AS entity
+        MATCH (n)
+        WHERE n.name IS NOT NULL AND apoc.text.sorensenDiceSimilarity(n.name, entity) >= $threshold
+        WITH entity, n, apoc.text.sorensenDiceSimilarity(n.name, entity) AS similarity
+        ORDER BY similarity DESC
+        WITH entity, collect(n.name)[..$top_k] AS matches
+        RETURN apoc.coll.toSet(apoc.coll.flatten(collect(matches))) AS all_matches
+        """
+        async with self.driver.session() as session:
+            res = await session.run(
+                cypher, {"entities": entities, "threshold": threshold, "top_k": top_k}
+            )
+            data = await res.single()
+            if data and data["all_matches"]:
+                return data["all_matches"]
+        return []
+
+    async def query_subgraph(
         self, entities: list[str], depth: int = 4, limit: int = 20
     ) -> list[dict[str, list[dict]]]:
         # 查询子图只返回节点和关系的名称和描述
@@ -142,7 +167,7 @@ class Neo4jGraphController:
             [node IN sliced_nodes | {name: node.name, description: node.description}] AS nodes,
             [rel IN sliced_relationships | {type: type(rel), start: startNode(rel).name, end: endNode(rel).name}] AS relationships
         """
-        subgraphs = self.query(
+        subgraphs = await self.query(
             cypher, {"entities": entities, "depth": depth, "limit": limit}
         )
         if not subgraphs:

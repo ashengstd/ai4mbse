@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+from typing import Any, Coroutine
 
 from langchain.prompts import PromptTemplate
 from langchain_litellm import ChatLiteLLM
@@ -22,7 +24,7 @@ def split_paragraphs(content: str) -> list[str]:
     return paragraphs
 
 
-def extract_triples_from_paragraphs(
+async def extract_triples_from_paragraphs(
     llm: ChatLiteLLM,
     p1: str,
     p2: str,
@@ -49,7 +51,7 @@ def extract_triples_from_paragraphs(
 
 
 # --- 主流程（修改滑动窗口为4段，步长3） ---
-def extract_requirement_triples(
+async def extract_requirement_triples(
     llm: ChatLiteLLM,
     content: str,
     window_size=4,
@@ -65,6 +67,7 @@ def extract_requirement_triples(
     paragraphs = split_paragraphs(content)
     output_triples = []
 
+    tasks: list[Coroutine[Any, Any, str]] = []
     total_windows = (len(paragraphs) - window_size) // step + 1
 
     for i in range(total_windows):
@@ -75,15 +78,20 @@ def extract_requirement_triples(
         if len(window_paragraphs) < window_size:
             break
 
-        result = extract_triples_from_paragraphs(
-            llm=llm,
-            p1=window_paragraphs[0],
-            p2=window_paragraphs[1],
-            p3=window_paragraphs[2],
-            p4=window_paragraphs[3],
-            logger=logger,
+        tasks.append(
+            extract_triples_from_paragraphs(
+                llm=llm,
+                p1=window_paragraphs[0],
+                p2=window_paragraphs[1],
+                p3=window_paragraphs[2],
+                p4=window_paragraphs[3],
+                logger=logger,
+            )
         )
 
+    results = await asyncio.gather(*tasks)
+
+    for i, result in enumerate(results):
         try:
             result_json = json.loads(result)
         except json.JSONDecodeError:
@@ -107,5 +115,5 @@ if __name__ == "__main__":
         "系统保证用户的独一。"
     )
     llm = ChatLiteLLM(model="deepseek/deepseek-chat")
-    result = extract_requirement_triples(llm=llm, content=test_content)
+    result = asyncio.run(extract_requirement_triples(llm=llm, content=test_content))
     print(json.dumps(result, ensure_ascii=False, indent=2))

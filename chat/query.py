@@ -18,7 +18,7 @@ logging.basicConfig(
 
 
 # --- 实体提取函数 ---
-def extract_entities(llm: ChatLiteLLM, question: str) -> list[str]:
+async def extract_entities(llm: ChatLiteLLM, question: str) -> list[str]:
     """
     使用 LLM 从问题中提取实体列表。
     Args:
@@ -28,11 +28,14 @@ def extract_entities(llm: ChatLiteLLM, question: str) -> list[str]:
     例如：['比尔·盖茨', '苹果公司', '马斯克', '飞机']
     """
     logger.info(f"🧠 正在提取实体: {question}")
-    entities_text = llm.invoke(
+
+    entities_text_result = llm.invoke(
         PromptTemplate(
             input_variables=["question"], template=entity_prompt_template
         ).format(question=question)
-    ).content
+    )
+    entities_text = entities_text_result.content
+
     if not isinstance(entities_text, str):
         logger.error("❌ 实体提取结果不是字符串类型，请检查 LLM 响应格式。")
         return []
@@ -45,7 +48,7 @@ def extract_entities(llm: ChatLiteLLM, question: str) -> list[str]:
 
 
 # --- 问题处理主流程 ---
-def query_by_subgraphs(
+async def query_by_subgraphs(
     llm: ChatLiteLLM,
     graph_controller: Neo4jGraphController,
     question: str,
@@ -53,21 +56,21 @@ def query_by_subgraphs(
     limit=20,
 ) -> Optional[str]:
     # 1. 提取实体
-    entities = extract_entities(llm=llm, question=question)
+    entities = await extract_entities(llm=llm, question=question)
     if not entities:
         logger.warning("⚠️ 没有提取到实体，无法进行子图查询。")
         return None
 
     # 2.与数据库中的实体进行检索
     logger.info(f"🔍 查询实体: {entities}")
-    likely_entities = graph_controller.search_likely_entities(entities)
+    likely_entities = await graph_controller.search_likely_entities(entities)
     if not likely_entities:
         logger.warning("⚠️ 没有找到匹配的实体，无法进行子图查询。")
         return None
     logger.info(f"✅ 匹配到的实体: {likely_entities}")
 
     # 3. 查询子图
-    subgraphs = graph_controller.query_subgraph(
+    subgraphs = await graph_controller.query_subgraph(
         likely_entities, depth=depth, limit=limit
     )
     if not subgraphs:
@@ -81,7 +84,8 @@ def query_by_subgraphs(
         template="请根据以下子图信息回答问题：\n\n{question}\n\n子图信息：{subgraph}",
     )
     question = prompt.format(question=question, subgraph=subgraphs)
-    answer = llm.invoke(question).content
+    answer_result = llm.invoke(question)
+    answer = answer_result.content
     logger.info(f"📝 格式化后的问题: {question}")
     logger.info(f"💡 回答: {answer}")
     return str(answer)

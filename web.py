@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -13,8 +14,7 @@ from controller.graph import Neo4jGraphController
 from controller.tmx import SysMLParser
 
 load_dotenv()
-app = FastAPI(title="Triple Graph API")
-llm = ChatLiteLLM(model="deepseek/deepseek-chat")
+
 
 # 日志配置
 logger = logging.getLogger("triple_graph_api")
@@ -23,6 +23,11 @@ logging.basicConfig(
     format="%(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(rich_tracebacks=True, show_time=False, markup=True)],
+)
+
+# 模型配置
+llm = ChatLiteLLM(
+    model="deepseek/deepseek-chat",
 )
 
 
@@ -41,6 +46,20 @@ graph_controller = Neo4jGraphController(
 )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    应用启动时，检查并创建数据库索引
+    """
+    await graph_controller.ensure_indexes()
+    yield
+    await graph_controller.close()
+    logger.info("Neo4j 连接已关闭")
+
+
+app = FastAPI(title="Triple Graph API", lifespan=lifespan)
+
+
 class QueryRequest(BaseModel):
     question: str
 
@@ -52,7 +71,9 @@ async def extract_triples_api(file: UploadFile = File(...)):
     """
     try:
         content = await file.read()
-        result = extract_requirement_triples(llm=llm, content=content.decode("utf-8"))
+        result = await extract_requirement_triples(
+            llm=llm, content=content.decode("utf-8")
+        )
         return {"triples": result}
     except Exception as e:
         logger.error(f"提取三元组失败,报错: {e}", exc_info=True)
@@ -68,7 +89,7 @@ async def import_triples_api(file: UploadFile = File(...)):
     try:
         content = await file.read()
         triples = json.loads(content)
-        graph_controller.import_triples(triples=triples)
+        await graph_controller.import_triples(triples=triples)
     except Exception as e:
         logger.error(f"导入三元组失败,报错: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
@@ -95,7 +116,7 @@ async def parse_tmx_api(file: UploadFile = File(...)):
 @app.post("/query")
 async def query_api(request: QueryRequest):
     try:
-        result = query_by_subgraphs(
+        result = await query_by_subgraphs(
             llm=llm, graph_controller=graph_controller, question=request.question
         )
     except Exception as e:
