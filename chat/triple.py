@@ -1,17 +1,23 @@
 import json
 import logging
-from pathlib import Path
 
 from langchain.prompts import PromptTemplate
 from langchain_litellm import ChatLiteLLM
+from rich.logging import RichHandler
 
 from chat.template import triple_prompt_template
 
+logger = logging.getLogger("triple_extractor")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, show_time=False, markup=True)],
+)
+
 
 # --- 加载 txt 文件并分段 ---
-def split_paragraphs(path: Path) -> list[str]:
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
+def split_paragraphs(content: str) -> list[str]:
     paragraphs = [p.strip() for p in content.split("\n") if p.strip()]
     return paragraphs
 
@@ -45,26 +51,18 @@ def extract_triples_from_paragraphs(
 # --- 主流程（修改滑动窗口为4段，步长3） ---
 def extract_requirement_triples(
     llm: ChatLiteLLM,
-    input_path: Path,
-    output_path: Path,
+    content: str,
     window_size=4,
     step=3,
-    logger: logging.Logger = logging.getLogger("triple_extractor"),
-):
+) -> dict:
     """
-    从输入文本中提取需求相关的三元组，并保存为 JSON 文件。
+    从输入文本中提取需求相关的三元组，并返回 JSON 。
     Args:
-        input_path (Path): 输入文本文件路径
-        output_path (Path): 输出 JSON 文件路径
+        content (str): 输入文本文件内容
         window_size (int): 窗口大小，默认为4段
         step (int): 步长，默认为3段
     """
-    input_path = Path(input_path)
-    output_path = Path(output_path)
-    if not input_path.exists() or not input_path.is_file():
-        raise FileNotFoundError(f"输入文件不存在或者错误：{input_path}")
-
-    paragraphs = split_paragraphs(input_path)
+    paragraphs = split_paragraphs(content)
     output_triples = []
 
     total_windows = (len(paragraphs) - window_size) // step + 1
@@ -96,9 +94,18 @@ def extract_requirement_triples(
         output_triples.extend(triples)
         logger.info(f"✅ 已处理窗口 {i + 1}/{total_windows}")
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {"requirement_triples": output_triples}, f, indent=2, ensure_ascii=False
-        )
+    logger.info(f"🎉 提取完成，共提取三元组数: {len(output_triples)}")
+    return {"triples": output_triples}
 
-    logger.info(f"\n🎉 提取完成，共提取三元组数: {len(output_triples)}")
+
+if __name__ == "__main__":
+    # 测试代码
+    test_content = (
+        "系统应该允许用户登录。\n"
+        "用户可以使用用户名和密码进行认证。\n"
+        "系统具有一系列安全措施。\n"
+        "系统保证用户的独一。"
+    )
+    llm = ChatLiteLLM(model="deepseek/deepseek-chat")
+    result = extract_requirement_triples(llm=llm, content=test_content)
+    print(json.dumps(result, ensure_ascii=False, indent=2))

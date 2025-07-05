@@ -14,18 +14,16 @@ from controller.graph import Neo4jGraphController
 from controller.tmx import SysMLParser
 
 
-def import_triples(triples_path: Path):
+def import_triples(triples_path: str):
     """导入三元组数据到 Neo4j"""
-    triples_path = Path(triples_path)
+    with open(triples_path, "r", encoding="utf-8") as f:
+        triples = json.load(f)
     graph_controller = Neo4jGraphController(
         url=os.getenv("NEO4J_URL", "enter_your_neo4j_url_in_.env"),
         username=os.getenv("NEO4J_USER", "enter_your_neo4j_username_in_.env"),
         password=os.getenv("NEO4J_PASSWORD", "enter_your_neo4j_password_in_.env"),
     )
-    if not triples_path.exists():
-        raise FileNotFoundError(f"文件 {triples_path} 不存在")
-
-    graph_controller.import_triples(triples_path=triples_path)
+    graph_controller.import_triples(triples)
     print(f"✅ 成功导入三元组数据: {triples_path}")
 
 
@@ -47,29 +45,30 @@ def test_query():
         query_by_subgraphs(llm=llm, graph_controller=graph_controller, question=q)
 
 
-def extract_triples(input_txt_path: Path, output_json_path: Path):
-    input_txt_path = Path(input_txt_path)
-    output_json_path = Path(output_json_path)
+def extract_triples(input_txt_path: str, output_json_path: str):
+    with open(input_txt_path, "r", encoding="utf-8") as f:
+        content = f.read()
     logger = logging.getLogger("triple_extractor")
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(message)s",
         datefmt="[%X]",
-        handlers=[RichHandler(rich_tracebacks=True)],
+        handlers=[RichHandler(rich_tracebacks=True, show_time=False, markup=True)],
     )
     llm = ChatLiteLLM(
         model="deepseek/deepseek-chat",
         temperature=0.7,
     )
-    extract_requirement_triples(
-        llm=llm, input_path=input_txt_path, output_path=output_json_path, logger=logger
-    )
+    result = extract_requirement_triples(llm=llm, content=content, logger=logger)
+    with open(output_json_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=4)
 
 
-def parse_tmx(input_tmx_path: Path, output_json_path: Path):
-    input_tmx_path = Path(input_tmx_path)
-    parser = SysMLParser(input_tmx_path)
+def parse_tmx(input_tmx_path: str, output_json_path: str):
+    with open(input_tmx_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    parser = SysMLParser(content)
     parser.parse_all()
     graph = parser.triples_to_graph_json()
     with open(output_json_path, "w") as f:

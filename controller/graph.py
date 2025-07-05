@@ -1,6 +1,4 @@
-import json
 import re
-from pathlib import Path
 from typing import Optional
 
 from neo4j import GraphDatabase, Session
@@ -46,12 +44,7 @@ class Neo4jGraphController:
         with self.driver.session() as session:
             return list(session.run(cypher, parameters or {}))
 
-    def import_triples(self, triples_path: Path) -> None:
-        triples_path = Path(triples_path)
-        if not triples_path.exists():
-            raise FileNotFoundError(f"指定的三元组文件路径无效或不存在: {triples_path}")
-
-        triples = json.loads(triples_path.read_text(encoding="utf-8"))
+    def import_triples(self, triples: dict) -> None:
         if not triples or "triples" not in triples:
             raise ValueError("三元组数据格式不正确，请检查 LLM 输出。")
 

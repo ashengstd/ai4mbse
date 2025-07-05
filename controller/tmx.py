@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import xml.etree.ElementTree as ET
@@ -19,8 +20,8 @@ class SysMLParser:
     支持提取模型元素的名称、ID、连接关系等，并将其存储为三元组形式。
     """
 
-    def __init__(self, file_path):
-        self.file_path = file_path
+    def __init__(self, file_content: str):
+        self.file_content = file_content
         self.root = None
         self.namespaces = {}
         self._model_elements_by_id = {}  # 新增: 全局模型元素ID到名称的映射
@@ -32,15 +33,16 @@ class SysMLParser:
         # 解析命名空间（关键修复）
         # 使用列表推导式确保迭代器在使用后被清空，或者至少只迭代一次
         ns_list = []
-        for event, (prefix, uri) in ET.iterparse(self.file_path, events=["start-ns"]):
+        f = io.StringIO(self.file_content)
+        for event, (prefix, uri) in ET.iterparse(f, events=["start-ns"]):
             ns_list.append((prefix, uri))
         self.namespaces = {
             prefix if prefix else "default": uri for prefix, uri in ns_list
         }
 
         # 使用 ElementTree 加载并解析 XML 内容
-        tree = ET.parse(self.file_path)
-        self.root = tree.getroot()
+        tree = ET.fromstring(self.file_content)
+        self.root = tree
 
         # --- 新增: 遍历所有元素，构建全局ID到名称的映射 ---
         # 这有助于在解析引用（如生命线的owner）时查找名称
@@ -90,9 +92,7 @@ class SysMLParser:
                         )
         # --- 结束新增 ---
 
-        logger.info(
-            f"✅ 成功加载 XML 文件: [bold green]{self.file_path}[/bold green]，"
-        )
+        logger.info("✅ 成功加载 XML 文件")
 
     def _strip_ns(self, tag):
         return tag.split("}")[-1] if "}" in tag else tag

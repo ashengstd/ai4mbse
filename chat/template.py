@@ -40,34 +40,34 @@ triple_prompt_template = (
     "1. 抽取上述段落中与建模相关的实体及其属性。\n"
     "2. 若这些实体间存在关系，请构建包含“实体-关系-实体”的三元组。\n"
     "3. 生成结果 JSON 格式如下（如果没有符合的三元组，则输出空列表）：\n"
+    "3. 生成结果 JSON 格式如下（如果没有符合的三元组，则输出空列表）：\n"
     "\n"
-    "{\n"
-    '  "triples": [\n'  # IMPORTANT: THIS KEY MUST BE "triples"
-    "    {\n"
-    '      "head": {\n'
+    "{{\n"
+    '  "triples": [\n'
+    "    {{\n"
+    '      "head": {{\n'
     '        "label": "ModelElement",\n'
     '        "id": "me-001",\n'
-    '        "properties": {\n'
+    '        "properties": {{\n'
     '          "name": "组件A",\n'
     '          "description": "系统中负责处理信号的部分"\n'
-    "        }\n"
-    "      },\n"
-    '      "relation": {\n'
+    "        }}\n"
+    "      }},\n"
+    '      "relation": {{\n'
     '        "type": "PART_OF",\n'
-    '        "properties": {}\n'
-    "      },\n"
-    '      "tail": {\n'
+    '        "properties": {{}}\n'
+    "      }},\n"
+    '      "tail": {{\n'
     '        "label": "ModelElement",\n'
     '        "id": "me-002",\n'
-    '        "properties": {\n'
+    '        "properties": {{\n'
     '          "name": "系统B"\n'
-    "        }\n"
-    "      }\n"
-    "    },\n"
+    "        }}\n"
+    "      }}\n"
+    "    }},\n"
     "    ...\n"
     "  ]\n"
-    "}\n"
-    "\n"
+    "}}\n"
     "请注意：\n"
     "- label 字段仅允许使用上述定义的10种类型。\n"
     "- relation.type 可以是 BELONGS_TO、PART_OF、USED_BY、DEFINED_BY、CONSTRAINED_BY、INTERACTS_WITH 等合理关系。\n"

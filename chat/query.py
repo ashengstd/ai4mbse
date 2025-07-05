@@ -13,7 +13,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
+    handlers=[RichHandler(rich_tracebacks=True, show_time=False, markup=True)],
 )
 
 
@@ -84,4 +84,4 @@ def query_by_subgraphs(
     answer = llm.invoke(question).content
     logger.info(f"📝 格式化后的问题: {question}")
     logger.info(f"💡 回答: {answer}")
-    return answer
+    return str(answer)
