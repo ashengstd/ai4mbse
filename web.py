@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_litellm import ChatLiteLLM
 from pydantic import BaseModel
 from rich.logging import RichHandler
@@ -58,6 +59,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Triple Graph API", lifespan=lifespan)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class QueryRequest(BaseModel):
