@@ -175,6 +175,23 @@ class Neo4jGraphController:
 
         return subgraphs
 
+    async def execute_cypher(
+        self,
+        cypher: str,
+        parameters: Optional[dict] = None,
+        session: Optional[AsyncSession] = None,
+    ) -> None:
+        """
+        执行任意 Cypher 语句，通常用于创建或更新数据。
+        """
+        logger.info(f"执行 Cypher 语句: {cypher}，参数: {parameters}")
+        if session:
+            await session.run(cypher, parameters or {})
+        else:
+            async with self.driver.session() as session:
+                await session.run(cypher, parameters or {})
+        logger.info("✅ Cypher 语句执行成功。")
+
 
 if __name__ == "__main__":
     import os

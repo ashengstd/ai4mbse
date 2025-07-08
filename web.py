@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -74,6 +75,12 @@ class QueryRequest(BaseModel):
     question: str
 
 
+class CypherRequest(BaseModel):
+    cypher: str
+    parameters: Optional[dict] = None
+    token: str
+
+
 @app.post("/extract_triples")
 async def extract_triples_api(file: UploadFile = File(...)):
     """
@@ -138,6 +145,26 @@ async def query_api(request: QueryRequest):
         "result": result if result else [],
         "message": "查询成功" if result else "未找到相关内容",
     }
+
+
+@app.post("/cypher")
+async def cypher_api(request: CypherRequest):
+    """
+    执行任意 Cypher 查询
+    """
+    if not request.token:
+        raise HTTPException(status_code=400, detail="缺少身份验证令牌")
+    if request.token != os.getenv("NEO4J_PASSWORD"):
+        raise HTTPException(status_code=403, detail="无效的身份验证令牌")
+
+    try:
+        result = await graph_controller.do_anything(
+            cypher=request.cypher, parameters=request.parameters
+        )
+        return {"result": result}
+    except Exception as e:
+        logger.error(f"Cypher 查询失败,报错: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Cypher 查询失败: {str(e)}")
 
 
 @app.get("/")
