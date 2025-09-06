@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Optional
+from typing import LiteralString, Optional
 
 from neo4j import AsyncGraphDatabase, AsyncSession
 from rich.logging import RichHandler
@@ -53,7 +53,7 @@ class Neo4jGraphController:
 
     async def query(
         self,
-        cypher: str,
+        cypher: LiteralString,
         parameters: Optional[dict] = None,
         session: Optional[AsyncSession] = None,
     ) -> list:
@@ -72,7 +72,7 @@ class Neo4jGraphController:
             raise ValueError("三元组数据格式不正确，请检查 LLM 输出。")
 
         async with self.driver.session() as session:
-            async with session.begin_transaction() as tx:
+            async with await session.begin_transaction() as tx:
                 for triple in triples["triples"]:
                     head = triple["head"]
                     relation = triple["relation"]
@@ -84,11 +84,11 @@ class Neo4jGraphController:
 
                     # MERGE head node
                     await tx.run(
-                        f"""
-                        MERGE (h:{head_label} {{id: $head_id}})
-                        SET h += $head_properties
+                        """
+                        CALL apoc.merge.node([$head_label], {id: $head_id}, $head_properties, $head_properties) YIELD node
                         """,
                         {
+                            "head_label": head_label,
                             "head_id": head.get("id"),
                             "head_properties": head.get("properties", {}),
                         },
@@ -96,11 +96,11 @@ class Neo4jGraphController:
 
                     # MERGE tail node
                     await tx.run(
-                        f"""
-                        MERGE (t:{tail_label} {{id: $tail_id}})
-                        SET t += $tail_properties
+                        """
+                        CALL apoc.merge.node([$tail_label], {id: $tail_id}, $tail_properties, $tail_properties) YIELD node
                         """,
                         {
+                            "tail_label": tail_label,
                             "tail_id": tail.get("id"),
                             "tail_properties": tail.get("properties", {}),
                         },
@@ -108,14 +108,18 @@ class Neo4jGraphController:
 
                     # MERGE relation
                     await tx.run(
-                        f"""
-                        MATCH (h:{head_label} {{id: $head_id}}), (t:{tail_label} {{id: $tail_id}})
-                        MERGE (h)-[r:{rel_type}]->(t)
-                        SET r += $relation_properties
+                        """
+                        MATCH (h) WHERE h.id = $head_id AND $head_label IN labels(h)
+                        MATCH (t) WHERE t.id = $tail_id AND $tail_label IN labels(t)
+                        CALL apoc.merge.relationship(h, $rel_type, {}, $relation_properties, t) YIELD rel
+                        RETURN rel
                         """,
                         {
                             "head_id": head.get("id"),
                             "tail_id": tail.get("id"),
+                            "head_label": head_label,
+                            "tail_label": tail_label,
+                            "rel_type": rel_type,
                             "relation_properties": relation.get("properties", {}),
                         },
                     )
@@ -177,7 +181,7 @@ class Neo4jGraphController:
 
     async def execute_cypher(
         self,
-        cypher: str,
+        cypher: LiteralString,
         parameters: Optional[dict] = None,
         session: Optional[AsyncSession] = None,
     ) -> None:

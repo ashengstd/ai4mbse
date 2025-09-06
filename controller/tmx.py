@@ -71,9 +71,13 @@ class SysMLParser:
                         "./subLabels[@alias='Name']", namespaces=self.namespaces
                     )
                     if sub_label_name_elem is not None:
-                        self._model_elements_by_id[elem_id] = sub_label_name_elem.get(
-                            "name"
-                        ).strip()
+                        sub_label_name = sub_label_name_elem.get("name")
+                        if sub_label_name is not None:
+                            self._model_elements_by_id[elem_id] = sub_label_name.strip()
+                        else:
+                            self._model_elements_by_id[elem_id] = (
+                                f"未知元素 (ID: {elem_id})"
+                            )
                         continue
 
                     # Fallback: use xmi:type as a descriptor if no name found
@@ -253,7 +257,8 @@ class SysMLParser:
                         node_id_to_name[node_id] = display_name
                         # 仅记录主要节点类型，不记录所有SubLabel或 CompartmentNode
                         if (
-                            "CompartmentNode" not in node_xmi_type
+                            node_xmi_type is not None
+                            and "CompartmentNode" not in node_xmi_type
                             and "SubLabel" not in node_xmi_type
                         ):
                             logger.info(f"  🟢 {display_name}")
@@ -604,14 +609,19 @@ class SysMLParser:
 
                             sub_display_name = node_id_to_name.get(sub_node_id, "未知")
                             if (
-                                "PinNode" not in sub_node_xmi_type
+                                sub_node_xmi_type is not None
+                                and "PinNode" not in sub_node_xmi_type
                                 and "CommentNode" not in sub_node_xmi_type
                             ):
                                 logger.info(f"      🟢 {sub_display_name}")
-                            elif "PinNode" in sub_node_xmi_type:
+                            elif (
+                                sub_node_xmi_type is not None
+                                and "PinNode" in sub_node_xmi_type
+                            ):
                                 logger.info(f"        🔸 {sub_display_name}")
                             elif (
-                                "CommentNode" in sub_node_xmi_type
+                                sub_node_xmi_type is not None
+                                and "CommentNode" in sub_node_xmi_type
                                 and sub_node.get("type") == "HyperLink"
                             ):
                                 logger.info(
@@ -671,11 +681,11 @@ class SysMLParser:
                             for sublabel in conn.findall(
                                 "./subLabels", namespaces=self.namespaces
                             ):
-                                if (
-                                    sublabel.get("alias") == "Stereotype"
-                                    and sublabel.get("name") not in conn_type
-                                ):
-                                    conn_type += f" {sublabel.get('name', '').strip().strip('<>')}"
+                                if sublabel.get("alias") == "Stereotype":
+                                    name = sublabel.get("name")
+                                    if name not in [None, "", conn_type]:
+                                        if name is not None:
+                                            conn_type += f" {name.strip().strip('<>')}"
 
                         logger.info(
                             f"    🔗 关系 ([blue]{conn_type}{guard_condition}[/blue]): [bold green]{source_name}[/bold green] → [bold blue]{target_name}[/bold blue]"
@@ -1363,13 +1373,13 @@ class SysMLParser:
                         for sublabel in msg_conn.findall(
                             "./subLabels", namespaces=self.namespaces
                         ):
+                            name_value = sublabel.get("name")
                             if (
                                 sublabel.get("alias") == "Name"
-                                and sublabel.get("name").strip() != message_name
+                                and name_value is not None
+                                and name_value.strip() != message_name
                             ):
-                                message_label_details.append(
-                                    sublabel.get("name").strip()
-                                )
+                                message_label_details.append(name_value.strip())
                             # You can add more specific aliases here if they appear in your XML
                             # e.g., if you have sublabels for arguments, stereotypes, etc.
                             # elif sublabel.get("alias') == "Arguments":
@@ -1474,7 +1484,7 @@ class SysMLParser:
                         else:
                             # Fallback if xmi:type is different or type attribute is missing
                             relationship_label = (
-                                self._strip_ns(conn_xmi_type)
+                                (self._strip_ns(conn_xmi_type) or "")
                                 .replace("trufun:", "")
                                 .replace("Connection", "")
                             )
@@ -1637,9 +1647,11 @@ class SysMLParser:
                                 if (
                                     sublabel.get("alias") == "Name"
                                 ):  # Trufun有时会将完整参数名放在这里
-                                    parameter_name_from_sublabel = sublabel.get(
-                                        "name"
-                                    ).strip()
+                                    parameter_name_from_sublabel = sublabel.get("name")
+                                    if parameter_name_from_sublabel is not None:
+                                        parameter_name_from_sublabel = (
+                                            parameter_name_from_sublabel.strip()
+                                        )
                                     break
 
                             if parameter_name_from_sublabel:

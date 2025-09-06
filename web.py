@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import LiteralString, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -76,7 +76,7 @@ class QueryRequest(BaseModel):
 
 
 class CypherRequest(BaseModel):
-    cypher: str
+    cypher: LiteralString
     parameters: Optional[dict] = None
     token: str
 
@@ -101,6 +101,8 @@ async def extract_triples_api(file: UploadFile = File(...)):
 
 @app.post("/import_triples")
 async def import_triples_api(file: UploadFile = File(...)):
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="未上传文件")
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="请上传 .json 格式文件")
     try:
@@ -158,7 +160,7 @@ async def cypher_api(request: CypherRequest):
         raise HTTPException(status_code=403, detail="无效的身份验证令牌")
 
     try:
-        result = await graph_controller.do_anything(
+        result = await graph_controller.execute_cypher(
             cypher=request.cypher, parameters=request.parameters
         )
         return {"result": result}

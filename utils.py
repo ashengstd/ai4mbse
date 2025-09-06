@@ -14,7 +14,7 @@ from controller.graph import Neo4jGraphController
 from controller.tmx import SysMLParser
 
 
-def import_triples(triples_path: str):
+async def import_triples(triples_path: str):
     """导入三元组数据到 Neo4j"""
     with open(triples_path, "r", encoding="utf-8") as f:
         triples = json.load(f)
@@ -23,11 +23,11 @@ def import_triples(triples_path: str):
         username=os.getenv("NEO4J_USER", "enter_your_neo4j_username_in_.env"),
         password=os.getenv("NEO4J_PASSWORD", "enter_your_neo4j_password_in_.env"),
     )
-    graph_controller.import_triples(triples)
+    await graph_controller.import_triples(triples)
     print(f"✅ 成功导入三元组数据: {triples_path}")
 
 
-def test_query():
+async def test_query():
     # 初始化 LLM
     llm = ChatLiteLLM(
         model="deepseek/deepseek-chat",
@@ -42,13 +42,12 @@ def test_query():
     ]
 
     for q in questions:
-        query_by_subgraphs(llm=llm, graph_controller=graph_controller, question=q)
+        await query_by_subgraphs(llm=llm, graph_controller=graph_controller, question=q)
 
 
 def extract_triples(input_txt_path: str, output_json_path: str):
     with open(input_txt_path, "r", encoding="utf-8") as f:
         content = f.read()
-    logger = logging.getLogger("triple_extractor")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -60,7 +59,7 @@ def extract_triples(input_txt_path: str, output_json_path: str):
         model="deepseek/deepseek-chat",
         temperature=0.7,
     )
-    result = extract_requirement_triples(llm=llm, content=content, logger=logger)
+    result = extract_requirement_triples(llm=llm, content=content)
     with open(output_json_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
 
@@ -76,14 +75,15 @@ def parse_tmx(input_tmx_path: str, output_json_path: str):
     print(f"📊 已提取图数据结构（JSON格式）: {output_json_path}")
 
 
-def check_path(path):
+def check_path(path) -> bool:
     if not path:
         raise ValueError("路径不能为空")
     if not Path(path).exists():
         raise FileNotFoundError(f"文件 {path} 不存在")
+    return True
 
 
-def tasks(
+async def tasks(
     task: Literal["import_triples", "test_query", "extract_triples", "parse_tmx"],
     triples_path: Optional[str] = None,
     input_txt_path: Optional[str] = None,
@@ -108,15 +108,18 @@ def tasks(
             f"未知任务: {task}. 可用任务: import_triples, test_query, extract_triples"
         )
     if task == "import_triples":
-        check_path(triples_path)
-        import_triples(triples_path)
+        if triples_path is None:
+            raise ValueError("参数 triples_path 不能为空")
+        await import_triples(triples_path)
     elif task == "test_query":
-        test_query()
+        await test_query()
     elif task == "extract_triples":
-        check_path(input_txt_path)
+        if input_txt_path is None or output_json_path is None:
+            raise ValueError("参数 input_txt_path 和 output_json_path 不能为空")
         extract_triples(input_txt_path, output_json_path)
     elif task == "parse_tmx":
-        check_path(input_tmx_path)
+        if input_tmx_path is None or output_json_path is None:
+            raise ValueError("参数 input_tmx_path 和 output_json_path 不能为空")
         parse_tmx(input_tmx_path, output_json_path)
 
 
