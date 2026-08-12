@@ -1,3 +1,5 @@
+
+
 # AI4MBSE - 面向模型的系统工程 AI 助手
 
 一个基于大型语言模型（LLM）和 Neo4j 图数据库的知识图谱检索增强生成（RAG）问答系统，专注于模型基系统工程（MBSE）领域的知识处理和分析。
@@ -165,7 +167,7 @@ Content-Type: multipart/form-data
 
 ```http
 POST /query
-Content--Type: application/json
+Content-Type: application/json
 
 {
   "question": "分析机上通信的需求。"
